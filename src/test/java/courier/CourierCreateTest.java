@@ -29,11 +29,21 @@ public class CourierCreateTest extends BaseTest {
     }
 
     @After
-    @Step("Удаление созданного курьера, если ID получен")
+    @Step("Удаление созданного курьера: логин, получение ID, удаление")
     public void tearDown() {
-        if (createdCourierId > 0) {
-            courierClient.deleteCourier(createdCourierId)
-                    .statusCode(SC_OK);
+        if (createdCourier != null && createdCourier.getLogin() != null && createdCourier.getPassword() != null) {
+            try {
+                CourierCredentials credentials = new CourierCredentials(
+                        createdCourier.getLogin(),
+                        createdCourier.getPassword()
+                );
+                Integer id = courierClient.getCourierId(credentials);
+                if (id != null && id > 0) {
+                    courierClient.deleteCourier(id).statusCode(SC_OK);
+                }
+            } catch (Exception e) {
+
+            }
         }
     }
 

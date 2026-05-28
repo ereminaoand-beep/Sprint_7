@@ -1,87 +1,72 @@
 package order;
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
+import client.BaseTest;
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
+import org.example.model.Order;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.ArrayList;
 import java.util.List;
 
-import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.SC_CREATED;
+import static org.hamcrest.Matchers.notNullValue;
 
 @RunWith(Parameterized.class)
-public class OrderCreateTest {
+public class OrderCreateTest extends BaseTest {
 
-    private final String color1;
-    private final String color2;
-    private List<Integer> createdOrderTracks;
+    private final List<String> colors;
+    private final String scenarioName;
+    private static final List<Integer> createdOrderTracks = new ArrayList<>();
 
-    public OrderCreateTest(String color1, String color2) {
-        this.color1 = color1;
-        this.color2 = color2;
+    public OrderCreateTest(String scenarioName, List<String> colors) {
+        this.scenarioName = scenarioName;
+        this.colors = colors;
     }
 
-    @Before
-    public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
-        createdOrderTracks = new ArrayList<>();
+    @Parameterized.Parameters(name = "{0}")
+    public static Collection<Object[]> testData() {
+        return Arrays.asList(new Object[][]{
+                {"Только BLACK", List.of("BLACK")},
+                {"Только GREY", List.of("GREY")},
+                {"Оба цвета", Arrays.asList("BLACK", "GREY")},
+                {"Без цвета", null},
+                {"Пустой список", List.of()}
+        });
     }
 
     @After
     public void tearDown() {
-        System.out.println("Заказы созданы с tracks: " + createdOrderTracks);
-    }
-
-    @Parameterized.Parameters
-    public static Collection<Object[]> testData() {
-        return Arrays.asList(new Object[][]{
-                {"BLACK", null},      // только BLACK
-                {null, "GREY"},       // только GREY
-                {"BLACK", "GREY"},    // оба цвета
-                {null, null}          // без цвета
-        });
+        // Здесь можно добавить отмену заказов, если есть API
     }
 
     @Test
+    @DisplayName("Создание заказа с разными комбинациями цветов")
+    @Description("Параметризованный тест: BLACK, GREY, оба, без цвета, пустой список")
     public void createOrderWithDifferentColors() {
-        String colorsArray = "[";
-        if (color1 != null) colorsArray += "\"" + color1 + "\"";
-        if (color2 != null) {
-            if (color1 != null) colorsArray += ",";
-            colorsArray += "\"" + color2 + "\"";
-        }
-        colorsArray += "]";
+        Order order = new Order(
+                "Иван",
+                "Петров",
+                "ул. Ленина, 1",
+                4,
+                "+79991234567",
+                5,
+                "2025-06-01",
+                "Позвонить за час",
+                colors
+        );
 
-        String body = "{\n" +
-                "  \"firstName\": \"Алексей\",\n" +
-                "  \"lastName\": \"Смирнов\",\n" +
-                "  \"address\": \"ул. Тестовая, 1\",\n" +
-                "  \"metroStation\": 4,\n" +
-                "  \"phone\": \"+79991234567\",\n" +
-                "  \"rentTime\": 5,\n" +
-                "  \"deliveryDate\": \"2025-12-31\",\n" +
-                "  \"comment\": \"Тестовый заказ\",\n" +
-                "  \"color\": " + colorsArray + "\n" +
-                "}";
+        int track = orderClient.createOrder(order)
+                .statusCode(SC_CREATED)
+                .body("track", notNullValue())
+                .extract()
+                .path("track");
 
-        Response response = given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/orders");
-
-        int track = response.then().extract().path("track");
         createdOrderTracks.add(track);
-
-        response.then()
-                .statusCode(201)
-                .and()
-                .body("track", notNullValue());
     }
 }

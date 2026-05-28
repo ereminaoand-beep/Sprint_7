@@ -1,30 +1,26 @@
 package order;
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
-import org.junit.Before;
+import client.BaseTest;
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
 import org.junit.Test;
 
-import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
+import java.util.ArrayList;
 
-public class OrderListTest {
+import static org.apache.http.HttpStatus.SC_OK;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.Assert.*;
 
-    @Before
-    public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
-    }
+public class OrderListTest extends BaseTest {
 
     @Test
-    public void getOrdersListReturnsList() {
-        Response response = given()
-                .get("/api/v1/orders");
-
-        response.then()
-                .statusCode(200)
-                .and()
+    @DisplayName("Получение списка заказов – успешный запрос")
+    @Description("Проверка, что GET /api/v1/orders возвращает 200 и непустой массив orders")
+    public void getOrdersListSuccessfully() {
+        orderClient.getOrdersList()
+                .statusCode(SC_OK)
                 .body("orders", notNullValue())
-                .and()
-                .body("orders", instanceOf(java.util.ArrayList.class));
+                .body("orders", instanceOf(ArrayList.class));
     }
 }

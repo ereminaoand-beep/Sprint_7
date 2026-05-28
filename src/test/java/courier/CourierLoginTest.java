@@ -1,138 +1,140 @@
 package courier;
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
+import client.BaseTest;
+import io.qameta.allure.Description;
+import io.qameta.allure.Step;
+import io.qameta.allure.junit4.DisplayName;
+import org.example.model.Courier;
+import org.example.model.CourierCredentials;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-public class CourierLoginTest {
+public class CourierLoginTest extends BaseTest {
 
-    private String testLogin;
-    private String testPassword;
+    private Courier createdCourier;
     private int createdCourierId;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
+        createdCourier = new Courier(
+                "logintest_" + System.currentTimeMillis(),
+                "pass123",
+                "Тестовый"
+        );
 
-        testLogin = "logintest_" + System.currentTimeMillis();
-        testPassword = "pass123";
+        courierClient.createCourier(createdCourier)
+                .statusCode(SC_CREATED);
 
-        String body = "{\"login\":\"" + testLogin + "\",\"password\":\"" + testPassword + "\",\"firstName\":\"Тестовый\"}";
-
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier");
-
-        createdCourierId = getCourierId(testLogin, testPassword);
+        CourierCredentials credentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                createdCourier.getPassword()
+        );
+        createdCourierId = courierClient.getCourierId(credentials);
     }
 
     @After
     public void tearDown() {
         if (createdCourierId > 0) {
-            given()
-                    .header("Content-Type", "application/json")
-                    .delete("/api/v1/courier/" + createdCourierId)
-                    .then().statusCode(200);
+            courierClient.deleteCourier(createdCourierId)
+                    .statusCode(SC_OK);
         }
     }
 
-    private int getCourierId(String login, String password) {
-        String body = "{\"login\":\"" + login + "\",\"password\":\"" + password + "\"}";
-        return given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login")
-                .then().extract().path("id");
-    }
-
-    private Response sendLoginRequestWithRetry(String body) {
-        Response response = given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login");
-
-        // Если сервер вернул 504, пробуем ещё 1 раз без задержки
-        if (response.getStatusCode() == 504) {
-            response = given()
-                    .header("Content-Type", "application/json")
-                    .body(body)
-                    .post("/api/v1/courier/login");
-        }
-        return response;
+    @Step("Отправка запроса на логин и проверка статус-кода")
+    private void sendLoginRequest(CourierCredentials credentials, int expectedStatusCode) {
+        courierClient.loginCourier(credentials)
+                .statusCode(expectedStatusCode);
     }
 
     @Test
+    @DisplayName("Логин курьера - успешная авторизация")
+    @Description("Проверка, что курьер может авторизоваться с правильными логином и паролем")
     public void courierCanLogin() {
-        String body = "{\"login\":\"" + testLogin + "\",\"password\":\"" + testPassword + "\"}";
+        CourierCredentials credentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                createdCourier.getPassword()
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(200)
-                .and()
+        courierClient.loginCourier(credentials)
+                .statusCode(SC_OK)
                 .body("id", notNullValue());
     }
 
     @Test
+    @DisplayName("Логин курьера - авторизация без логина")
+    @Description("Проверка, что без логина авторизация невозможна, возвращается ошибка 400 и сообщение")
     public void loginWithoutLoginFails() {
-        String body = "{\"password\":\"" + testPassword + "\"}";
+        CourierCredentials credentialsWithoutLogin = new CourierCredentials(
+                null,
+                createdCourier.getPassword()
+        );
 
-        Response response = sendLoginRequestWithRetry(body);
-        response.then().statusCode(400);
+        courierClient.loginCourier(credentialsWithoutLogin)
+                .statusCode(SC_BAD_REQUEST)
+                .body("message", equalTo("Недостаточно данных для входа"));
     }
 
     @Test
+    @DisplayName("Логин курьера - авторизация без пароля")
+    @Description("Проверка, что без пароля авторизация невозможна, возвращается ошибка 400 и сообщение")
     public void loginWithoutPasswordFails() {
-        String body = "{\"login\":\"" + testLogin + "\"}";
+        CourierCredentials credentialsWithoutPassword = new CourierCredentials(
+                createdCourier.getLogin(),
+                null
+        );
 
-        Response response = sendLoginRequestWithRetry(body);
-        response.then().statusCode(400);
+        courierClient.loginCourier(credentialsWithoutPassword)
+                .statusCode(SC_BAD_REQUEST)
+                .body("message", equalTo("Недостаточно данных для входа"));
     }
 
     @Test
+    @DisplayName("Логин курьера - неверный пароль")
+    @Description("Проверка, что с неверным паролем авторизация невозможна, возвращается ошибка 404")
     public void wrongPasswordReturnsError() {
-        String body = "{\"login\":\"" + testLogin + "\",\"password\":\"wrong_password\"}";
+        CourierCredentials wrongCredentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                "wrong_password"
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(404);
+        courierClient.loginCourier(wrongCredentials)
+                .statusCode(SC_NOT_FOUND)
+                .body("message", equalTo("Учетная запись не найдена"));
     }
 
     @Test
+    @DisplayName("Логин курьера - неверный логин")
+    @Description("Проверка, что с неверным логином авторизация невозможна, возвращается ошибка 404")
     public void wrongLoginReturnsError() {
-        String body = "{\"login\":\"wrong_login\",\"password\":\"" + testPassword + "\"}";
+        CourierCredentials wrongCredentials = new CourierCredentials(
+                "wrong_login",
+                createdCourier.getPassword()
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(404);
+        courierClient.loginCourier(wrongCredentials)
+                .statusCode(SC_NOT_FOUND)
+                .body("message", equalTo("Учетная запись не найдена"));
     }
 
     @Test
+    @DisplayName("Логин курьера - успешный запрос возвращает id")
+    @Description("Проверка, что при успешной авторизации возвращается id курьера")
     public void successLoginReturnsId() {
-        String body = "{\"login\":\"" + testLogin + "\",\"password\":\"" + testPassword + "\"}";
+        CourierCredentials credentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                createdCourier.getPassword()
+        );
 
-        Response response = given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login");
+        Integer id = courierClient.getCourierId(credentials);
 
-        response.then().statusCode(200);
-        Integer id = response.then().extract().path("id");
-        org.junit.Assert.assertNotNull(id);
-        org.junit.Assert.assertTrue(id > 0);
+        assertNotNull("ID не должен быть null", id);
+        assertTrue("ID должен быть больше 0", id > 0);
     }
 }

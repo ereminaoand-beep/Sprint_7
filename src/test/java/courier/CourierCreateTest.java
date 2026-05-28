@@ -1,157 +1,124 @@
 package courier;
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
+import client.BaseTest;
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
+import org.example.model.Courier;
+import org.example.model.CourierCredentials;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.*;
+import static org.hamcrest.Matchers.equalTo;
 
-public class CourierCreateTest {
+public class CourierCreateTest extends BaseTest {
 
-    private String createdCourierLogin;
-    private String createdCourierPassword;
+    private Courier createdCourier;
     private int createdCourierId;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
+        createdCourier = new Courier(
+                "create_test_" + System.currentTimeMillis(),
+                "password123",
+                "Создаваемый"
+        );
     }
 
     @After
     public void tearDown() {
         if (createdCourierId > 0) {
-            given()
-                    .header("Content-Type", "application/json")
-                    .delete("/api/v1/courier/" + createdCourierId)
-                    .then().statusCode(200);
+            courierClient.deleteCourier(createdCourierId)
+                    .statusCode(SC_OK);
         }
     }
 
-    private int getCourierId(String login, String password) {
-        String body = "{\"login\":\"" + login + "\",\"password\":\"" + password + "\"}";
-        return given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier/login")
-                .then().extract().path("id");
-    }
-
     @Test
-    public void createCourierSuccess() {
-        createdCourierLogin = "courier_" + System.currentTimeMillis();
-        createdCourierPassword = "pass123";
-        String body = "{\"login\":\"" + createdCourierLogin + "\",\"password\":\"" + createdCourierPassword + "\",\"firstName\":\"Иван\"}";
-
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(201)
-                .and()
+    @DisplayName("Создание курьера - успешное создание")
+    @Description("Проверка, что курьера можно создать с валидными данными, возвращается 201 Created")
+    public void createCourierSuccessfully() {
+        courierClient.createCourier(createdCourier)
+                .statusCode(SC_CREATED)
                 .body("ok", equalTo(true));
 
-        createdCourierId = getCourierId(createdCourierLogin, createdCourierPassword);
+        CourierCredentials credentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                createdCourier.getPassword()
+        );
+        createdCourierId = courierClient.getCourierId(credentials);
     }
 
     @Test
-    public void cannotCreateDuplicateCourier() {
-        createdCourierLogin = "duplicate_test_" + System.currentTimeMillis();
-        createdCourierPassword = "pass123";
-        String body = "{\"login\":\"" + createdCourierLogin + "\",\"password\":\"" + createdCourierPassword + "\",\"firstName\":\"Петр\"}";
+    @DisplayName("Создание курьера - нельзя создать двух одинаковых")
+    @Description("Попытка создать курьера с уже существующим логином возвращает 409 Conflict")
+    public void createDuplicateCourierFails() {
+        courierClient.createCourier(createdCourier)
+                .statusCode(SC_CREATED);
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier");
+        CourierCredentials credentials = new CourierCredentials(
+                createdCourier.getLogin(),
+                createdCourier.getPassword()
+        );
+        createdCourierId = courierClient.getCourierId(credentials);
 
-        createdCourierId = getCourierId(createdCourierLogin, createdCourierPassword);
+        Courier sameCourier = new Courier(
+                createdCourier.getLogin(),
+                createdCourier.getPassword(),
+                createdCourier.getFirstName()
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(409)
-                .and()
-                .body("message", equalTo("Этот логин уже используется. Попробуйте другой."));
+        courierClient.createCourier(sameCourier)
+                .statusCode(SC_CONFLICT)
+                .body("message", equalTo("Этот логин уже используется"));
     }
 
     @Test
+    @DisplayName("Создание курьера - без логина (обязательное поле)")
+    @Description("Проверка, что при отсутствии логина возвращается 400 Bad Request")
     public void createCourierWithoutLoginFails() {
-        String body = "{\"password\":\"pass123\",\"firstName\":\"Сергей\"}";
+        Courier courierWithoutLogin = new Courier(
+                null,
+                "password123",
+                "Без логина"
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(400);
+        courierClient.createCourier(courierWithoutLogin)
+                .statusCode(SC_BAD_REQUEST);
     }
 
     @Test
+    @DisplayName("Создание курьера - без пароля (обязательное поле)")
+    @Description("Проверка, что при отсутствии пароля возвращается 400 Bad Request")
     public void createCourierWithoutPasswordFails() {
-        String body = "{\"login\":\"test_login_" + System.currentTimeMillis() + "\",\"firstName\":\"Алексей\"}";
+        Courier courierWithoutPassword = new Courier(
+                "login_" + System.currentTimeMillis(),
+                null,
+                "Без пароля"
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(400);
+        courierClient.createCourier(courierWithoutPassword)
+                .statusCode(SC_BAD_REQUEST);
     }
 
     @Test
-    public void successResponseReturnsOkTrue() {
-        createdCourierLogin = "ok_true_test_" + System.currentTimeMillis();
-        createdCourierPassword = "pass123";
-        String body = "{\"login\":\"" + createdCourierLogin + "\",\"password\":\"" + createdCourierPassword + "\",\"firstName\":\"Дмитрий\"}";
+    @DisplayName("Создание курьера - без имени (необязательное поле)")
+    @Description("Проверка, что курьера можно создать без имени — успешный ответ 201")
+    public void createCourierWithoutFirstNameSuccess() {
+        Courier courierWithoutFirstName = new Courier(
+                "onlylogin_" + System.currentTimeMillis(),
+                "pass",
+                null
+        );
 
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
+        courierClient.createCourier(courierWithoutFirstName)
+                .statusCode(SC_CREATED)
                 .body("ok", equalTo(true));
 
-        createdCourierId = getCourierId(createdCourierLogin, createdCourierPassword);
-    }
-
-    @Test
-    public void missingFieldReturnsError() {
-        String body = "{\"login\":\"only_login_" + System.currentTimeMillis() + "\"}";
-
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(400);
-    }
-
-    @Test
-    public void existingLoginReturnsError() {
-        createdCourierLogin = "existing_user_" + System.currentTimeMillis();
-        createdCourierPassword = "pass123";
-        String body = "{\"login\":\"" + createdCourierLogin + "\",\"password\":\"" + createdCourierPassword + "\",\"firstName\":\"Ольга\"}";
-
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier");
-
-        createdCourierId = getCourierId(createdCourierLogin, createdCourierPassword);
-
-        given()
-                .header("Content-Type", "application/json")
-                .body(body)
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(409)
-                .and()
-                .body("message", equalTo("Этот логин уже используется. Попробуйте другой."));
+        CourierCredentials credentials = new CourierCredentials(
+                courierWithoutFirstName.getLogin(),
+                courierWithoutFirstName.getPassword()
+        );
+        createdCourierId = courierClient.getCourierId(credentials);
     }
 }

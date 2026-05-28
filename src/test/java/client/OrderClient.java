@@ -1,5 +1,6 @@
 package client;
 
+import io.qameta.allure.Step;
 import io.restassured.response.ValidatableResponse;
 import org.example.model.Order;
 
@@ -9,6 +10,7 @@ public class OrderClient extends BaseClient {
 
     private static final String ORDER_PATH = "/api/v1/orders";
 
+    @Step("Создание заказа")
     public ValidatableResponse createOrder(Order order) {
         return given()
                 .spec(getBaseSpec())
@@ -18,6 +20,7 @@ public class OrderClient extends BaseClient {
                 .then();
     }
 
+    @Step("Получение списка заказов")
     public ValidatableResponse getOrdersList() {
         return given()
                 .spec(getBaseSpec())
@@ -26,7 +29,7 @@ public class OrderClient extends BaseClient {
                 .then();
     }
 
-    // Если нужна отмена заказа
+    @Step("Отмена заказа по track ID: {trackId}")
     public ValidatableResponse cancelOrder(int trackId) {
         return given()
                 .spec(getBaseSpec())

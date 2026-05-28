@@ -1,5 +1,6 @@
 package client;
 
+import io.qameta.allure.Step;
 import io.restassured.response.ValidatableResponse;
 import org.example.model.Courier;
 import org.example.model.CourierCredentials;
@@ -11,6 +12,7 @@ public class CourierClient extends BaseClient {
     private static final String COURIER_PATH = "/api/v1/courier";
     private static final String COURIER_LOGIN_PATH = "/api/v1/courier/login";
 
+    @Step("Создание курьера")
     public ValidatableResponse createCourier(Courier courier) {
         return given()
                 .spec(getBaseSpec())
@@ -20,6 +22,7 @@ public class CourierClient extends BaseClient {
                 .then();
     }
 
+    @Step("Логин курьера")
     public ValidatableResponse loginCourier(CourierCredentials credentials) {
         return given()
                 .spec(getBaseSpec())
@@ -29,6 +32,7 @@ public class CourierClient extends BaseClient {
                 .then();
     }
 
+    @Step("Удаление курьера по ID: {courierId}")
     public ValidatableResponse deleteCourier(int courierId) {
         return given()
                 .spec(getBaseSpec())
@@ -37,7 +41,7 @@ public class CourierClient extends BaseClient {
                 .then();
     }
 
-    // Метод для получения ID курьера после логина
+    @Step("Получение ID курьера по учётным данным")
     public Integer getCourierId(CourierCredentials credentials) {
         return loginCourier(credentials)
                 .extract()

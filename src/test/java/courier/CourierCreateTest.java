@@ -2,6 +2,7 @@ package courier;
 
 import client.BaseTest;
 import io.qameta.allure.Description;
+import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import org.example.model.Courier;
 import org.example.model.CourierCredentials;
@@ -18,6 +19,7 @@ public class CourierCreateTest extends BaseTest {
     private int createdCourierId;
 
     @Before
+    @Step("Подготовка данных для тестов создания курьера")
     public void setUp() {
         createdCourier = new Courier(
                 "create_test_" + System.currentTimeMillis(),
@@ -27,6 +29,7 @@ public class CourierCreateTest extends BaseTest {
     }
 
     @After
+    @Step("Удаление созданного курьера, если ID получен")
     public void tearDown() {
         if (createdCourierId > 0) {
             courierClient.deleteCourier(createdCourierId)
@@ -35,8 +38,9 @@ public class CourierCreateTest extends BaseTest {
     }
 
     @Test
+    @Step("Создание курьера с валидными данными")
     @DisplayName("Создание курьера - успешное создание")
-    @Description("Проверка, что курьера можно создать с валидными данными, возвращается 201 Created")
+    @Description("Проверка, что курьера можно создать с валидными данными, возвращается 201 Created и ok: true")
     public void createCourierSuccessfully() {
         courierClient.createCourier(createdCourier)
                 .statusCode(SC_CREATED)
@@ -50,8 +54,9 @@ public class CourierCreateTest extends BaseTest {
     }
 
     @Test
+    @Step("Попытка создать двух одинаковых курьеров")
     @DisplayName("Создание курьера - нельзя создать двух одинаковых")
-    @Description("Попытка создать курьера с уже существующим логином возвращает 409 Conflict")
+    @Description("Попытка создать курьера с уже существующим логином возвращает 409 Conflict с соответствующим сообщением")
     public void createDuplicateCourierFails() {
         courierClient.createCourier(createdCourier)
                 .statusCode(SC_CREATED);
@@ -74,8 +79,9 @@ public class CourierCreateTest extends BaseTest {
     }
 
     @Test
+    @Step("Создание курьера без логина")
     @DisplayName("Создание курьера - без логина (обязательное поле)")
-    @Description("Проверка, что при отсутствии логина возвращается 400 Bad Request")
+    @Description("Проверка, что при отсутствии логина возвращается 400 Bad Request и сообщение об ошибке")
     public void createCourierWithoutLoginFails() {
         Courier courierWithoutLogin = new Courier(
                 null,
@@ -84,12 +90,14 @@ public class CourierCreateTest extends BaseTest {
         );
 
         courierClient.createCourier(courierWithoutLogin)
-                .statusCode(SC_BAD_REQUEST);
+                .statusCode(SC_BAD_REQUEST)
+                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
     }
 
     @Test
+    @Step("Создание курьера без пароля")
     @DisplayName("Создание курьера - без пароля (обязательное поле)")
-    @Description("Проверка, что при отсутствии пароля возвращается 400 Bad Request")
+    @Description("Проверка, что при отсутствии пароля возвращается 400 Bad Request и сообщение об ошибке")
     public void createCourierWithoutPasswordFails() {
         Courier courierWithoutPassword = new Courier(
                 "login_" + System.currentTimeMillis(),
@@ -98,12 +106,14 @@ public class CourierCreateTest extends BaseTest {
         );
 
         courierClient.createCourier(courierWithoutPassword)
-                .statusCode(SC_BAD_REQUEST);
+                .statusCode(SC_BAD_REQUEST)
+                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
     }
 
     @Test
+    @Step("Создание курьера без имени (необязательное поле)")
     @DisplayName("Создание курьера - без имени (необязательное поле)")
-    @Description("Проверка, что курьера можно создать без имени — успешный ответ 201")
+    @Description("Проверка, что курьера можно создать без имени — успешный ответ 201 и ok: true")
     public void createCourierWithoutFirstNameSuccess() {
         Courier courierWithoutFirstName = new Courier(
                 "onlylogin_" + System.currentTimeMillis(),

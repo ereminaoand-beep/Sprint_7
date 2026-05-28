@@ -2,6 +2,7 @@ package order;
 
 import client.BaseTest;
 import io.qameta.allure.Description;
+import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import org.example.model.Order;
 import org.junit.After;
@@ -15,6 +16,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static org.apache.http.HttpStatus.SC_CREATED;
+import static org.apache.http.HttpStatus.SC_OK;
 import static org.hamcrest.Matchers.notNullValue;
 
 @RunWith(Parameterized.class)
@@ -41,11 +43,17 @@ public class OrderCreateTest extends BaseTest {
     }
 
     @After
+    @Step("Отмена всех созданных заказов")
     public void tearDown() {
-        // Здесь можно добавить отмену заказов, если есть API
+        for (Integer track : createdOrderTracks) {
+            orderClient.cancelOrder(track)
+                    .statusCode(SC_OK);
+        }
+        createdOrderTracks.clear();
     }
 
     @Test
+    @Step("Создание заказа с цветами: {scenarioName}")
     @DisplayName("Создание заказа с разными комбинациями цветов")
     @Description("Параметризованный тест: BLACK, GREY, оба, без цвета, пустой список")
     public void createOrderWithDifferentColors() {

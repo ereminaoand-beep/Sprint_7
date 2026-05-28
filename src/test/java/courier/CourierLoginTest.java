@@ -23,6 +23,11 @@ public class CourierLoginTest extends BaseTest {
 
     @Before
     public void setUp() {
+        prepareCourier();
+    }
+
+    @Step("Подготовка курьера: создание и получение ID")
+    private void prepareCourier() {
         createdCourier = new Courier(
                 "logintest_" + System.currentTimeMillis(),
                 "pass123",
@@ -54,6 +59,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка успешной авторизации курьера")
     @DisplayName("Логин курьера - успешная авторизация")
     @Description("Проверка, что курьер может авторизоваться с правильными логином и паролем")
     public void courierCanLogin() {
@@ -68,6 +74,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка авторизации без логина")
     @DisplayName("Логин курьера - авторизация без логина")
     @Description("Проверка, что без логина авторизация невозможна, возвращается ошибка 400 и сообщение")
     public void loginWithoutLoginFails() {
@@ -82,6 +89,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка авторизации без пароля")
     @DisplayName("Логин курьера - авторизация без пароля")
     @Description("Проверка, что без пароля авторизация невозможна, возвращается ошибка 400 и сообщение")
     public void loginWithoutPasswordFails() {
@@ -96,6 +104,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка авторизации с неверным паролем")
     @DisplayName("Логин курьера - неверный пароль")
     @Description("Проверка, что с неверным паролем авторизация невозможна, возвращается ошибка 404")
     public void wrongPasswordReturnsError() {
@@ -110,6 +119,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка авторизации с неверным логином")
     @DisplayName("Логин курьера - неверный логин")
     @Description("Проверка, что с неверным логином авторизация невозможна, возвращается ошибка 404")
     public void wrongLoginReturnsError() {
@@ -124,6 +134,7 @@ public class CourierLoginTest extends BaseTest {
     }
 
     @Test
+    @Step("Проверка, что успешный логин возвращает ID")
     @DisplayName("Логин курьера - успешный запрос возвращает id")
     @Description("Проверка, что при успешной авторизации возвращается id курьера")
     public void successLoginReturnsId() {
